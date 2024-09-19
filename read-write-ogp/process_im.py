@@ -4,6 +4,7 @@ import matplotlib
 matplotlib.use('Agg')
 from ogp_height_plotter import loadsheet, AppendFlats, AppendHeights, plot2d, uploadPostgres, get_offsets, check
 from postgres_tools.upload_inspect import upload_PostgreSQL
+from make_accuracy_plot import make_accuracy_plot, make_fake_plot
 from datetime import datetime
 
 OGPSurveyfile = (sys.argv[1]).replace("\\", "/")
