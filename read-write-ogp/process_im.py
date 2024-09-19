@@ -3,7 +3,7 @@ import os, sys, asyncio, send2trash
 import matplotlib
 matplotlib.use('Agg')
 from ogp_height_plotter import loadsheet, AppendFlats, AppendHeights, plot2d, uploadPostgres, get_offsets, check
-from postgres_tools.upload_inspect import upload_PostgreSQL
+from postgres_tools.upload_inspect import upload_PostgreSQL, GrabSensorOffsets
 from make_accuracy_plot import make_accuracy_plot, make_fake_plot
 from datetime import datetime
 
