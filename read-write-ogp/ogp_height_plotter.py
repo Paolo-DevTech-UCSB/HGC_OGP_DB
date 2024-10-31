@@ -390,6 +390,7 @@ def searchTrayPin(sheet,keys, details = 0, Tray = 0, points = None):
             print()
     Feature = 0
     row = globals()[f"{sheet}"].nrows
+    print("is this working?", sheet, row)
     #print(f"total row is {row}")
     for i in range(row):
         actual = str(globals()[f"{sheet}"].cell_value(i,2))
@@ -400,6 +401,7 @@ def searchTrayPin(sheet,keys, details = 0, Tray = 0, points = None):
     for i in range(row):
         actual = str(globals()[f"{sheet}"].cell_value(i,2))
         for j in range(len(keys)):
+            #print(keys, actual)  #comment me out!!!
             if (keys[j] in actual):
                 if Feature == 2:
                     x = float(globals()[f"{sheet}"].cell_value(i,5))
@@ -420,6 +422,7 @@ def searchTrayPin(sheet,keys, details = 0, Tray = 0, points = None):
 
 def searchSensorFD(sheet,keys,details = 0, fd = None, points=None):
     #def searchSensorFD(sheet,keys,details = 0,Tray = 0,Traykeys=["Tray"], fd = None, points=None):   Changed from this OCT 30
+    print(sheet)
     row = globals()[f"{sheet}"].nrows
     for i in range(row):
         actual = str(globals()[f'{sheet}'].cell_value(i,2))
@@ -447,6 +450,32 @@ def searchSensorFD(sheet,keys,details = 0, fd = None, points=None):
     print(f"Found {len(fd)} Sensor Fiducial Points")
     print()
     return fd, points
+
+def searchTrayID(sheet, Shape):
+    keys = ['Tray 1','Tray 2','Tray 3','TRAY','Tray1','Tray2','Tray3']
+    TrayInfo = []
+    red = 0;
+    row = globals()[f"{sheet}"].nrows
+    for i in range(row):
+        actual = str(globals()[f'{sheet}'].cell_value(i,2))
+        TrayBoolean = str(globals()[f'{sheet}'].cell_value(i,3))
+        for j in range(len(keys)):
+            if (keys[j] in actual):
+                TrayInfo.append([keys[j],actual,TrayBoolean])
+    #print("Tray info:", TrayInfo)
+    for info in TrayInfo:
+        if str(1) in info[0]:
+            TrayNum = 1; 
+            red = red + 1;
+        if str(2) in info[0]:
+            TrayNum = 2; 
+            red = red + 1;
+        if str(3) in info[0]:
+            TrayNum = 3; 
+            red = red + 1;
+    if red > 1 :
+        TrayNum = int(input("It says there more than 2 tray sheets which one is it? : "))
+    return TrayNum
 
 def plotFD(FDpoints,FDCenter,Center, Off, points, fd, sheetnames = ['','']):
     CenterX = f"{Center}.X"
@@ -569,8 +598,14 @@ def angle(points,FDpoints=4,OffCenterPin = "Left", details = 0, plot = 0, Center
     if PinAdj != 0:
         print(f"Angle Pin {angle_Pin:.3f} deg Adjusted by {PinAdj:.3f} deg")
         
-    print(points['FD1'], points['FD2'], points['FD3'], points['FD4'])
+    if all(key in points for key in ['FD1', 'FD2', 'FD3', 'FD4']):
+        print(points['FD1'], points['FD2'], points['FD3'], points['FD4'])
+    else:
+        print("One or more keys are missing.")
+
     #FD Center Calculation 
+
+
     #if Shape == "HD Full":    
     #if Shape == "HD Full":
     #if Shape == "HD Full":
@@ -580,7 +615,7 @@ def angle(points,FDpoints=4,OffCenterPin = "Left", details = 0, plot = 0, Center
     #if Shape == "HD Full":
     #if Shape == "HD Full":
          
-            
+    print("Big CheckPoint 2!!")       
            
         
     #Offset Calculation:     FDC and Pin Ceneter Will get new definitions, dependent on shape
@@ -612,7 +647,7 @@ def angle(points,FDpoints=4,OffCenterPin = "Left", details = 0, plot = 0, Center
     return CenterOffset, AngleOffset, XOffset, YOffset
 
 def get_shape_from_name(modname):
-    #print(modname) #print(modname[3], modname[10])
+    print("Name:" , modname) #print(modname[3], modname[10])
     if len(modname) == 13 and modname[6] == '-':
         Shape = modname[2]; #print('ucsb Convention')
         Density = modname[1]; #print('ucsb Convention')
@@ -678,6 +713,7 @@ def Pos_One_Or_Two(fd, points):
     return Position;
 
 def Get_The_Pins(Shape, Position):
+    print("running get the pins: ", Position, Shape)
     if Shape == 'HD Full' or Shape == 'LD Full':
         if Position == 1:
             OffKey = 'P1E';
@@ -696,25 +732,33 @@ def Get_The_Pins(Shape, Position):
     return OffKey, CenKey;
         
     
-def get_offsets(filenames, Traysheets, Shape):
-    print("Code Works Up to Here... get_offsets in ogp_height_plotter")
+def get_offsets(filenames, Traysheets, Shape, comp_type, TrayNum):
+    print("Code Works Up to Here... (here is:) get_offsets(); in ogp_height_plotter")
     #Just added Shape to inputs, needs to be accounted for. Oct 30 -Paolo
         ##FIRST; Get the points and use thier Locations to determine P1 or P2:
-        
+    
+    #print("FIXING GET OFFSETS;", CurrentTrayFile, filenames)
     sheetnames = loadsheet(filenames);    fd=[]; points = {};
+
+    #print("this is sheetnames inside get_offsets", sheetnames)
+
+    #print("running get the pins: ",  Shape)
+
     sensorKeys = ["FD"] #needs to adapt/be tested for other shapes
     fd, points = searchSensorFD(sheetnames[1], sensorKeys, details = 0, fd=fd,points = points)
 
     Position = Pos_One_Or_Two(fd, points);
     
         ##Second: Find Tray Pin Keys with Knowladge of Position and File/Tray Name 
+
+    print("This is Tray Sheets:", Traysheets, "and traynum: ", TrayNum)
     
     Off, Center = Get_The_Pins(Shape, Position); keys = [Center, Off];
     
         ##Third Use Tray Keys to Determine Pin locations
     
     TrayKeys = ["Tray","T",'P1','P2']
-    searchTrayPin(sheetnames[0],keys,details=0,Tray = 0, points = points)
+    searchTrayPin( Traysheets[(int(TrayNum)-1)],keys,details=0,Tray = 0, points = points)
         
         ##Fourth: Use Pin locations, Position, Shape, and FD points to Calculate Offsets
     
@@ -786,3 +830,4 @@ def quality(Center, Rotation, position = "P1", details =0, note = 0):
 #get_shape_from_name('320-MLR1CX-SB0001')
 #get_shape_from_name('320-MHL1CXSB0001')
 #get_shape_from_name('320MLT1CXSB0001')
+#searchTrayID("MLR3TX-SB0005")

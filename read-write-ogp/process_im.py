@@ -2,7 +2,7 @@ import numpy as np
 import os, sys, asyncio, send2trash
 import matplotlib
 matplotlib.use('Agg')
-from ogp_height_plotter import loadsheet, AppendFlats, AppendHeights, plot2d, uploadPostgres, get_offsets, check, get_shape_from_name
+from ogp_height_plotter import loadsheet, AppendFlats, AppendHeights, plot2d, uploadPostgres, get_offsets, check, get_shape_from_name, searchTrayID
 from postgres_tools.upload_inspect import upload_PostgreSQL, GrabSensorOffsets
 from make_accuracy_plot import make_accuracy_plot, make_fake_plot
 from datetime import datetime
@@ -12,10 +12,12 @@ print(f'filename: {OGPSurveyfile}')
 #print(f'filename: {OGPSurveyfile.split('data')[0]}')
 #GantryTrayFile = OGPSurveyfile.split('OGP_results')[0]+'OGP_results/assembly_trays/assembly_tray_input.xls'
 GantryTrayFile = OGPSurveyfile.split('data')[0]+'data/Tray 2 low light more points June 2023.xls';
+#GantryTrayFile = OGPSurveyfile.split('data')[0]+'data/Tray 2 for NSH.xls';
 #Tray1file = OGPSurveyfile.split('OGP_results')[0]+'data/Tray 1 for NSH.xls'
 Tray1file = OGPSurveyfile.split('data')[0]+'data/Tray 1 for NSH.xls'
 #Tray2file = OGPSurveyfile.split('OGP_results')[0]+'data/Tray 2 for NSH.xls'
 Tray2file = OGPSurveyfile.split('data')[0]+'data/Tray 2 for NSH.xls'
+Tray3file = OGPSurveyfile.split('data')[0]+'data/Tray 3 backlight.xls'
 trash_file = False
 
 if '/' in OGPSurveyfile:
@@ -82,6 +84,22 @@ time_inspect = datetime.now().time()
 # date_inspect = datetime.strptime(date, '%Y-%m-%d')
 # time_inspect = datetime.strptime(time, '%H:%M:%S.%f')
 
+if comp_type == 'modules' or comp_type == 'protomodules':
+        filenames = [GantryTrayFile, OGPSurveyfile]
+        sheetnames = loadsheet(filenames);
+        TrayNum = searchTrayID(sheetnames[1], Shape)    # CONFUSING: Looking For Tray # in Survey File
+        print("Tray Used for Assembly:", TrayNum)
+filenames = [OGPSurveyfile] #,OGPSurveyfile2,OGPSurveyfile3,OGPSurveyfile4]
+sheetnames = loadsheet(filenames)
+
+if TrayNum == 1:
+    CurrentTrayFile = Tray1file;
+elif TrayNum == 2:
+    CurrentTrayFile = Tray2file;
+elif TrayNum == 3:
+    CurrentTrayFile = Tray3file;
+print("Current Tray File: ", CurrentTrayFile)
+
 for i in range(len(filenames)):
     modtitle = f"{sheetnames[i]}"
     #modtitle = f"{(filenames[i].split('/')[-1]).split('.')[0]}"
@@ -110,21 +128,28 @@ for i in range(len(filenames)):
     elif comp_type == 'hexaboards':
         db_upload.update({'hxb_name':modtitle})
     elif comp_type == 'protomodules':
-        #Needs More Code Here For Different Shapes of ProtoModules
+        #Needs More Code Here For Different Shapes of ProtoModules'
+        print('1010101: this is modtitle:', modtitle)
         Shape = get_shape_from_name(modtitle);
         
-        if check(Tray1file) & check(Tray2file):
+        if check(Tray3file) & check(Tray1file) & check(Tray2file):
+            Traysheets = loadsheet([Tray1file,Tray2file,Tray3file])
+        elif check(Tray1file) & check(Tray2file):
             Traysheets = loadsheet([Tray1file,Tray2file])
                 
-        XOffset, YOffset, AngleOff = get_offsets([GantryTrayFile, OGPSurveyfile], Traysheets, Shape)
+        XOffset, YOffset, AngleOff = get_offsets([GantryTrayFile, OGPSurveyfile], Traysheets, Shape, comp_type, TrayNum)
         db_upload.update({'proto_name': modtitle, 'x_offset_mu':np.round(XOffset*1000), 'y_offset_mu':np.round(YOffset*1000), 'ang_offset_deg':np.round(AngleOff,3)})
     else:
         #Needs More Code Here For Differet Shapes of Modules
+        print('1010101: this is modtitle:', modtitle)
         Shape = get_shape_from_name(modtitle);
         
-        if check(Tray1file) & check(Tray2file):
+        if check(Tray3file) & check(Tray1file) & check(Tray2file):
+            Traysheets = loadsheet([Tray1file,Tray2file,Tray3file])
+        elif check(Tray1file) & check(Tray2file):
             Traysheets = loadsheet([Tray1file,Tray2file])
-        XOffset, YOffset, AngleOff = get_offsets([GantryTrayFile, OGPSurveyfile], Traysheets, Shape)
+
+        XOffset, YOffset, AngleOff = get_offsets([GantryTrayFile, OGPSurveyfile], Traysheets, Shape, comp_type, TrayNum)
         db_upload.update({'module_name': modtitle, 'x_offset_mu':np.round(XOffset*1000), 'y_offset_mu':np.round(YOffset*1000), 'ang_offset_deg':np.round(AngleOff,3)})
         try:
             PMoffsets = asyncio.run(GrabSensorOffsets(modtitle))
