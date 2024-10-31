@@ -2,16 +2,20 @@ import numpy as np
 import os, sys, asyncio, send2trash
 import matplotlib
 matplotlib.use('Agg')
-from ogp_height_plotter import loadsheet, AppendFlats, AppendHeights, plot2d, uploadPostgres, get_offsets, check
+from ogp_height_plotter import loadsheet, AppendFlats, AppendHeights, plot2d, uploadPostgres, get_offsets, check, get_shape_from_name
 from postgres_tools.upload_inspect import upload_PostgreSQL, GrabSensorOffsets
 from make_accuracy_plot import make_accuracy_plot, make_fake_plot
 from datetime import datetime
 
 OGPSurveyfile = (sys.argv[1]).replace("\\", "/")
 print(f'filename: {OGPSurveyfile}')
-GantryTrayFile = OGPSurveyfile.split('OGP_results')[0]+'OGP_results/assembly_trays/assembly_tray_input.xls'
-Tray1file = OGPSurveyfile.split('OGP_results')[0]+'data/Tray 1 for NSH.xls'
-Tray2file = OGPSurveyfile.split('OGP_results')[0]+'data/Tray 2 for NSH.xls'
+#print(f'filename: {OGPSurveyfile.split('data')[0]}')
+#GantryTrayFile = OGPSurveyfile.split('OGP_results')[0]+'OGP_results/assembly_trays/assembly_tray_input.xls'
+GantryTrayFile = OGPSurveyfile.split('data')[0]+'data/Tray 2 low light more points June 2023.xls';
+#Tray1file = OGPSurveyfile.split('OGP_results')[0]+'data/Tray 1 for NSH.xls'
+Tray1file = OGPSurveyfile.split('data')[0]+'data/Tray 1 for NSH.xls'
+#Tray2file = OGPSurveyfile.split('OGP_results')[0]+'data/Tray 2 for NSH.xls'
+Tray2file = OGPSurveyfile.split('data')[0]+'data/Tray 2 for NSH.xls'
 trash_file = False
 
 if '/' in OGPSurveyfile:
@@ -27,12 +31,10 @@ else:
     modname = OGPSurveyfile.split('/')[-1]
     home_folder = None
 
-#important for getting comptype right 
-if home_folder == 'HD full':
-    if 'P' in modname:
-        comp_type = 'protomodules';
-    if 'M' in modname: 
-        comp_type = 'modules'
+if 'P' in modname:
+    comp_type = 'protomodules';
+if 'M' in modname: 
+    comp_type = 'modules'
         
 print('')
 print(f"###### NEW {comp_type} UPLOAD #######")
@@ -70,7 +72,8 @@ filenames = [OGPSurveyfile] #,OGPSurveyfile2,OGPSurveyfile3,OGPSurveyfile4]
 sheetnames = loadsheet(filenames)
 mod_flats = AppendFlats(sheetnames,key)
 mappings = np.array([None],dtype=object)
-sensor_Heights = AppendHeights(sheetnames,key, mappings)  ####### This prints line details
+Shape = get_shape_from_name(modname.replace('.xls',''));
+sensor_Heights = AppendHeights(sheetnames,key, mappings, Shape)  ####### This prints line details
 inspector = 'cmuperson'
 comment = ''
 
@@ -107,14 +110,21 @@ for i in range(len(filenames)):
     elif comp_type == 'hexaboards':
         db_upload.update({'hxb_name':modtitle})
     elif comp_type == 'protomodules':
+        #Needs More Code Here For Different Shapes of ProtoModules
+        Shape = get_shape_from_name(modtitle);
+        
         if check(Tray1file) & check(Tray2file):
             Traysheets = loadsheet([Tray1file,Tray2file])
-        XOffset, YOffset, AngleOff = get_offsets([GantryTrayFile, OGPSurveyfile], Traysheets)
+                
+        XOffset, YOffset, AngleOff = get_offsets([GantryTrayFile, OGPSurveyfile], Traysheets, Shape)
         db_upload.update({'proto_name': modtitle, 'x_offset_mu':np.round(XOffset*1000), 'y_offset_mu':np.round(YOffset*1000), 'ang_offset_deg':np.round(AngleOff,3)})
     else:
+        #Needs More Code Here For Differet Shapes of Modules
+        Shape = get_shape_from_name(modtitle);
+        
         if check(Tray1file) & check(Tray2file):
             Traysheets = loadsheet([Tray1file,Tray2file])
-        XOffset, YOffset, AngleOff = get_offsets([GantryTrayFile, OGPSurveyfile], Traysheets)
+        XOffset, YOffset, AngleOff = get_offsets([GantryTrayFile, OGPSurveyfile], Traysheets, Shape)
         db_upload.update({'module_name': modtitle, 'x_offset_mu':np.round(XOffset*1000), 'y_offset_mu':np.round(YOffset*1000), 'ang_offset_deg':np.round(AngleOff,3)})
         try:
             PMoffsets = asyncio.run(GrabSensorOffsets(modtitle))

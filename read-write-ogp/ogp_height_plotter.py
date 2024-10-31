@@ -5,7 +5,7 @@ import matplotlib
 # matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.colors as cls
-# import xlrd
+import xlrd
 
 # from hexmap.plot_summary import *
 
@@ -24,7 +24,7 @@ def displaysheet(sheet,row):
         actual = globals()[f"{sheet}"].cell_value(i,2)
         print(actual)
 
-def Height(sheetname,key = 'Thick'):   ### change the key here for searching where is the first Height in the excel
+def Height(sheetname,key = 'Thick', Shape = "HD Full"):   ### change the key here for searching where is the first Height in the excel
     row = globals()[f"{sheetname}"].nrows
     #print("total number of row is", row)
     for i in range(row):
@@ -42,7 +42,13 @@ def Height(sheetname,key = 'Thick'):   ### change the key here for searching whe
     else:
         lines=[height1,height1+1,height1+2]
     #lines = [20,21,22]
-    for i in range(0,25):
+    
+    if Shape == "HD Full" or Shape == "LD Full":
+        HeightsRange = 25;
+    elif Shape == "LD Right" or Shape == "LD Left":
+        HeightsRange = 21;
+    
+    for i in range(0,HeightsRange):
     #print(i)
         x=float(globals()[f'{sheetname}'].cell_value(lines[0]+i*5,5))
         y=float(globals()[f'{sheetname}'].cell_value(lines[1]+i*5,5))
@@ -115,13 +121,13 @@ def AppendTime(sheetnames,key = 'Date'):
       All_Heights.append(np.array(getDate(sheetnames[j],key)))
     return All_Heights
 
-def AppendHeights(sheetnames,key = 'Thick', mappings = None):
+def AppendHeights(sheetnames,key = 'Thick', mappings = None, Shape = "HD Full"):
     All_Heights=[]
     for j in range(len(sheetnames)):
         if mappings[j] is not None:
-            All_Heights.append(np.array(Height(sheetnames[j],key))[:,mappings[j]])
+            All_Heights.append(np.array(Height(sheetnames[j],key,Shape))[:,mappings[j]])
         else:
-            All_Heights.append(np.array(Height(sheetnames[j],key)))
+            All_Heights.append(np.array(Height(sheetnames[j],key,Shape)))
     return All_Heights
 
 def AppendFlats(sheetnames,key = 'Surface'):
@@ -247,7 +253,7 @@ def plot2d(x, y, zheight, limit = 0, vmini=1.05, vmaxi=4.5, center = 0, rotate =
     
     from io import BytesIO  
     buffer = BytesIO()
-    plt.savefig(f"{(savename.split('/'))[-1]}.png", bbox_inches='tight') # uncomment here for saving the 2d plot
+    #plt.savefig(f"{(savename.split('/'))[-1]}.png", bbox_inches='tight') # uncomment here for saving the 2d plot
     plt.savefig(buffer, format='png', bbox_inches='tight')
     buffer.seek(0)
     plt.close()
@@ -412,11 +418,12 @@ def searchTrayPin(sheet,keys, details = 0, Tray = 0, points = None):
                     #print(f"value: {value}")
     print()
 
-def searchSensorFD(sheet,keys,details = 0,Tray = 0,Traykeys=["Tray"], fd = None, points=None):
+def searchSensorFD(sheet,keys,details = 0, fd = None, points=None):
+    #def searchSensorFD(sheet,keys,details = 0,Tray = 0,Traykeys=["Tray"], fd = None, points=None):   Changed from this OCT 30
     row = globals()[f"{sheet}"].nrows
     for i in range(row):
         actual = str(globals()[f'{sheet}'].cell_value(i,2))
-        if Tray == 1:
+        """if Tray == 1:
             for k in range(len(Traykeys)):
                 if (Traykeys[k] in actual):
                     for c in range(3,6):
@@ -425,7 +432,7 @@ def searchSensorFD(sheet,keys,details = 0,Tray = 0,Traykeys=["Tray"], fd = None,
                             print("Auto detect Tray to be", actual)
                             print()
                             break
-                    break
+                    break"""  #Commented out becuase it's uneeded
         for j in range(len(keys)):
             if (keys[j] in actual):
                 x = float(globals()[f'{sheet}'].cell_value(i,5))
@@ -483,11 +490,17 @@ def plotFD(FDpoints,FDCenter,Center, Off, points, fd, sheetnames = ['','']):
     print()
 
 
-def angle(points,FDpoints=4,OffCenterPin = "Left", details = 0, plot = 0, Center = None, Off = None, fd = None):
+def angle(points,FDpoints=4,OffCenterPin = "Left", details = 0, plot = 0, Center = None, Off = None, fd = None, Position = 1, Shape = "HD Full"):
+    #this needs to be reorganized/reconfigured -Paolo Oct 30
+    # def angle(points,FDpoints=4,OffCenterPin = "Left", details = 0, plot = 0, Center = None, Off = None, fd = None):
+    ValidOffCenterPins = ['P1E','P1F','P1G','P1H','P2E','P2F','P2G','P2H']
+    
     CenterX = f"{Center}.X"
     CenterY = f"{Center}.Y"
     OffX = f"{Off}.X"
     OffY = f"{Off}.Y"
+    
+    #Errors and Warning Messaging ##### #####
     
     if (FDpoints != 2) and (FDpoints != 4):
         print(f"{FDpoints} Fiducial Points. Invalid Number. Please use either 2 or 4 Fiducial Points")
@@ -496,91 +509,92 @@ def angle(points,FDpoints=4,OffCenterPin = "Left", details = 0, plot = 0, Center
     else:
         print(f"Using {FDpoints} Fiducial Points ")
     print()
-    if (OffCenterPin != "Left") and (OffCenterPin != "Right"):
+    ValidPin = False;
+    for pin in ValidOffCenterPins:
+        if OffCenterPin == pin:
+            print("Valid Pin Positions")
+            ValidPin = True;
+    if ValidPin == False:
         print("Invalid OffCenter Pin Position")
         print("Please indicate whether OffCenter Pin is on the Left or Right to the Center Pin")
         #break
         return
-    else:
-        if OffCenterPin == "Left":
-            Pin = np.array([points[CenterX],points[CenterY]]) - np.array([points[OffX],points[OffY]])
-            print("OffCenter Pin is on the Left relative to the Center Pin")
-        if OffCenterPin == "Right":
-            Pin = np.array([points[OffX],points[OffY]]) - np.array([points[CenterX],points[CenterY]]) 
-            print("OffCenter Pin is on the Right relative to the Center Pin")
-    #elif (OffCenterPin != "Left") and (OffCenterPin != "Right"):
-        #print("Please indicate whether OffCenter Pin is on the Left or Right to the Center Pin")
-        #break
-        print()
-        PinCenter = np.array([points[CenterX],points[CenterY]])
-        angle_Pin= np.degrees(np.arctan2(Pin[1],Pin[0]))
-    #print(f"Pin X' axis is at angle {angle_Pin:.3f} degrees")
-    if FDpoints==2:
-        FD1 = points[fd[0]]-points[fd[1]]
-        if FD1[1] > 0:
-            angle_FD1= np.degrees(np.arctan2(FD1[1],FD1[0]))-90
-        else:
-            angle_FD1= np.degrees(np.arctan2(FD1[1],FD1[0]))+90
-        FDCenter = (points[fd[0]]+points[fd[1]])/2
-        if details == 1:
-            print(f"FD1-2 X'' axis is at angle {angle_FD1:.5f} degrees")
-            print()
-            print(f"FDCenter at x:{FDCenter[0]:.3f} mm, y:{FDCenter[1]:.3f} mm")
-            print(f"PinCenter at x:{PinCenter[0]:.3f} mm, y:{PinCenter[1]:.3f} mm")
-        print()
-        """XOffset = FDCenter[0]-PinCenter[0]
-        YOffset = FDCenter[1]-PinCenter[1]
-        print(f"Assembly Survey X Offset: {XOffset:.3f} mm")
-        print(f"Assembly Survey Y Offset: {YOffset:.3f} mm")
-        print()
-        AngleOffset = angle_FD1 - angle_Pin
-        print(f"Assembly Survey Rotational Offset is {AngleOffset:.5f} degrees")"""
-    if FDpoints==4:
-        FD1 = points[fd[0]]-points[fd[2]]
-        if FD1[1] > 0:
-            angle_FD1= np.degrees(np.arctan2(FD1[1],FD1[0])) -90
-        else:
-            angle_FD1= np.degrees(np.arctan2(FD1[1],FD1[0])) +90
-        FD2 = points[fd[1]]-points[fd[3]]
-        FD = (points[fd[0]]+points[fd[1]])/2 - (points[fd[2]]+points[fd[3]])/2
-        FDCenter = (points[fd[0]]+points[fd[1]]+points[fd[2]]+points[fd[3]])/4
-        if FD2[1] > 0:
-            angle_FD2= np.degrees(np.arctan2(FD2[1],FD2[0]))-90
-        else:
-            angle_FD2= np.degrees(np.arctan2(FD2[1],FD2[0]))+90
-        if details == 1:
-            print(f"FD1-3 X'' axis is at angle {angle_FD1:.5f} degrees")
-            print(f"angle of FD1-3 X'' relative to Assembly Tray Pin X' is {angle_FD1 - angle_Pin:.5f} degrees")
-            print(f"FD2-4 X'' axis is at angle {angle_FD2:.5f} degrees")
-            print(f"angle of FD2-4 X'' relative to Assembly Tray Pin X' is {angle_FD2 - angle_Pin:.5f} degrees")
-            print()
-            print(f"FDCenter at x:{FDCenter[0]:.3f} mm, y:{FDCenter[1]:.3f} mm")
-            print(f"PinCenter at x:{PinCenter[0]:.3f} mm, y:{PinCenter[1]:.3f} mm")
-            print()
-        """XOffset = FDCenter[0]-PinCenter[0]
-        YOffset = FDCenter[1]-PinCenter[1]
-        print(f"Assembly Survey X Offset: {XOffset:.3f} mm")
-        print(f"Assembly Survey Y Offset: {YOffset:.3f} mm")
-        print()
-        #print('arctan Method')
-        print()"""
-        u_Pin = Pin/np.linalg.norm(Pin)
-        angle_Pin= np.degrees(np.arctan2(Pin[1],Pin[0]))
-        #if details == 1:
-            #print(f"Pin X' axis is at angle {angle_Pin:.3f} degrees")
-            #print()
-        u_FD = FD/np.linalg.norm(FD)
-        angle_FD= np.degrees(np.arctan2(FD[1],FD[0]))-90
-        if details == 1:
-            print(f"Pin X' axis is at angle {angle_Pin:.5f} degrees")
-            print()
-            print(f"FD1-4 X'' axis is at angle {angle_FD:.5f} degrees")
-        #print(f"Assembly Survey Rotational Offset is {angle_FD - angle_Pin:.5f} degrees")
-        #print()
-        #angle_FD1= np.degrees(np.arctan2(FD1[1],FD1[0]))
-        #print(f"FD1-2 X'' axis is at angle {angle_FD1} degrees")
+    
+    #print(points)
+    # MAKING 'PIN' VECTOR ####### #######
+    # PIN VECTOR POINTS TO THE RIGHT ----> 
+    print("Making a Vector using Pin Data With the Following Configuartion:")
+    if OffCenterPin == "P1E":     #FULLS and TOPS
+        Pin = np.array([points[CenterX],points[CenterY]]) - np.array([points[OffX],points[OffY]])
+        PinAdj = 0;
+        print("OffCenter Pin is on the Left relative to the Center Pin   (oc) ----> (c)   +0 ")
+    elif OffCenterPin == "P2G":     #FULLS and TOPS
+        Pin = np.array([points[OffX],points[OffY]]) - np.array([points[CenterX],points[CenterY]])
+        PinAdj = 0;
+        print("OffCenter Pin is on the Right relative to the Center Pin   (c) ----> (oc)  +0 ")
+        
+        
+    elif OffCenterPin == "P1G":     #BOTTOMS
+        Pin = np.array([points[OffX],points[OffY]]) - np.array([points[CenterX],points[CenterY]])
+        PinAdj = 0;
+        print("OffCenter Pin is on the Right relative to the Center Pin   (c) ----> (oc)  +0 ")
+    elif OffCenterPin == "P2E":     #BOTTOMS
+        Pin = np.array([points[CenterX],points[CenterY]]) - np.array([points[OffX],points[OffY]])
+        PinAdj = 0;
+        print("OffCenter Pin is on the Right relative to the Center Pin   (oc) ----> (c)  +0 ")
+        
+         
+    elif OffCenterPin == "P1H":     #LEFTS
+        Pin = np.array([points[CenterX],points[CenterY]]) - np.array([points[OffX],points[OffY]]) 
+        PinAdj = 270;
+        print("OffCenter Pin is Below the Center Pin   (up)  +270 / -90 ")
+    elif OffCenterPin == "P2F":     #LEFTS
+        Pin = np.array([points[OffX],points[OffY]]) - np.array([points[CenterX],points[CenterY]])
+        PinAdj = 270;
+        print("OffCenter Pin is Above the Center Pin   (up)  +270 / -90 ")
+    
+    
+    elif OffCenterPin == "P1F":     #RIGHTS
+        Pin = np.array([points[CenterX],points[CenterY]]) - np.array([points[OffX],points[OffY]])
+        PinAdj = 270;
+        print("OffCenter Pin is Above the Center Pin   (up)  +270 / -90 ")
+    elif OffCenterPin == "P2H":     #RIGHTS
+        Pin = np.array([points[OffX],points[OffY]]) - np.array([points[CenterX],points[CenterY]])
+        PinAdj = 270;
+        print("OffCenter Pin is Below the Center Pin   (up)  +270 / -90 ")
+        
+    # MAKING 'PIN' ANGLE ####### #######    
+    angle_Pin = np.degrees(np.arctan2(Pin[1],Pin[0])) + PinAdj;
+    print(f"Angle Pin = ArcTan [ {Pin[1]:.3f} / {Pin[0]:.3f}] = {angle_Pin:.3f} deg")
+    if PinAdj != 0:
+        print(f"Angle Pin {angle_Pin:.3f} deg Adjusted by {PinAdj:.3f} deg")
+        
+    print(points['FD1'], points['FD2'], points['FD3'], points['FD4'])
+    #FD Center Calculation 
+    #if Shape == "HD Full":    
+    #if Shape == "HD Full":
+    #if Shape == "HD Full":
+    #if Shape == "HD Full":
+    #if Shape == "HD Full":
+    #if Shape == "HD Full":
+    #if Shape == "HD Full":
+    #if Shape == "HD Full":
+         
+            
+           
+        
+    #Offset Calculation:     FDC and Pin Ceneter Will get new definitions, dependent on shape
     XOffset = FDCenter[0]-PinCenter[0]
     YOffset = FDCenter[1]-PinCenter[1]
+    
+    #Angle Calculation         IS THIS ALLWAYS TRUE?  IDK - need more time
+    AngleOffset = angle_FD1 - angle_Pin
+    print(f"Assembly Survey Rotational Offset is {AngleOffset:.5f} degrees")
+    
+    if plot == 1:
+        plotFD(FDpoints,FDCenter,Center, Off, points, fd,)
+    CenterOffset = np.sqrt(XOffset**2 + YOffset**2)
+    
     print(f"Assembly Survey X Offset: {XOffset:.3f} mm")
     print(f"Assembly Survey Y Offset: {YOffset:.3f} mm")
     print()
@@ -594,71 +608,119 @@ def angle(points,FDpoints=4,OffCenterPin = "Left", details = 0, plot = 0, Center
     print(f"Assembly Survey X Offset: {NEWX:.3f} mm (rotated)")
     print(f"Assembly Survey Y Offset: {NEWY:.3f} mm (rotated)")
     print()
-    AngleOffset = angle_FD1 - angle_Pin
-    print(f"Assembly Survey Rotational Offset is {AngleOffset:.5f} degrees")
-    if plot == 1:
-        plotFD(FDpoints,FDCenter,Center, Off, points, fd,)
-    CenterOffset = np.sqrt(XOffset**2 + YOffset**2)
+    
     return CenterOffset, AngleOffset, XOffset, YOffset
 
-
-
-def get_offsets(filenames, Traysheets):
-    sheetnames = loadsheet(filenames)
-    autoTray = 0
-    points = {}
-    TrayKeys = ["Tray","T"]
-    sensorKeys = ["Sensor", "Corner","P1","FD3","FD6","FDthree","FDsix"]  ### Key words for searching Sensor FD points in the file
-    fd=[]
-
-    searchSensorFD(sheetnames[1],sensorKeys,details = 0, Tray = autoTray, Traykeys = TrayKeys, fd=fd,points = points)
-    Center = 'P1Center'
-    Off = 'P1OffcenterPin'
-    keys = [Center, Off]
-    traypin=[]
-
-    searchTrayPin(sheetnames[0],keys,details=0,Tray = autoTray, points = points)
-    #print(points)
-    DiffKeys = True; CXchk1 = False; CYchk1 = False; DictKeys = points.keys();
-    for dictkey in points.keys():
-        if dictkey == 'CenterX':
-            CXchk1 = True;
-        if dictkey == 'CenterY':
-            CYchk1 = True; 
-        if CYchk1 and CXchk1: DiffKeys = False;
+def get_shape_from_name(modname):
+    #print(modname) #print(modname[3], modname[10])
+    if len(modname) == 13 and modname[6] == '-':
+        Shape = modname[2]; #print('ucsb Convention')
+        Density = modname[1]; #print('ucsb Convention')
+    elif len(modname) == 12:
+        Shape = modname[2]; #print('ucsb Convention w/o dash- ')
+        Density = modname[1];
+    elif len(modname) == 16 and modname[3] == '-':
+         Shape = modname[6]; #print('ucsb Convention w/o 2nd dash w/ 320 ')
+         Density = modname[5];
+    elif len(modname) == 16 and modname[9] == '-':     
+        Shape = modname[5]; #print('ucsb Convention  w/o 1st dash w/ 320')
+        Density = modname[4];
+    elif len(modname) == 17 and modname[3] == '-' and modname[10] == '-':
+        Shape = modname[6]; #print('ucsb Convention  w/ 320 and two dashes')
+        Density = modname[5];
+    elif len(modname) == 15:
+        Shape = modname[5]; #print('ucsb Convention  w/ 320 and no dashes')
+        Density = modname[4];
+    else:
+        #print('no accepted name')
+        Shape = 'none';
+        Density = 'none';
+    #print(Shape)
     
-    ####IMPORTANT  (Left or Right)  -edited by paolo
-    pinsetting = "Right";
+    if Shape == 'F' and Density == 'H':
+        ShapeID = 'HD Full';
+    elif Shape == 'F' and Density == 'L':
+        ShapeID = 'LD Full'
+    elif Shape == '5' and Density == 'L':
+        ShapeID = 'LD Five'
+    elif Shape == 'R' and Density == 'L':
+        ShapeID = 'LD Right'
+    elif Shape == 'L' and Density == 'L':
+        ShapeID = 'LD Left'
+    elif Shape == 'T' and Density == 'L':
+        ShapeID = 'LD Top'
+    elif Shape == 'B' and Density == 'L':
+        ShapeID = 'LD Bottom'
+    elif Shape == 'R' and Density == 'H':
+        ShapeID = 'HD Right'
+    elif Shape == 'L' and Density == 'H':
+        ShapeID = 'HD Left'
+    elif Shape == 'T' and Density == 'H':
+        ShapeID = 'HD Top'
+    elif Shape == 'B' and Density == 'H':
+        ShapeID = 'HD Bottom'
+    else:
+        ShapeID = 'Unkown Shape'
+        print('invalid density or shape')
+    #print(ShapeID)
+    return ShapeID
 
-    ###### this NEEDS to be worked on for more trays and more positions, -Paolo 
-    ###### hard coded tray offsets from : "Tray 2 low light more points June 2023"
-    if DiffKeys: 
-        points.update({
-            'P1Center.X': 142.648,
-            'P1Center.Y': 298.465,
-            'P2Center.X': 91.899,
-            'P2Center.Y': 107.959,
-            'P1LEFT.X': 67.688,
-            'P1LEFT.Y': 298.445,
-            'P2LEFT.X': 16.949,
-            'P2LEFT.Y': 107.939,
-            'P1RIGHT.X': 217.585,
-            'P1RIGHT.Y': 298.455,
-            'P2RIGHT.X': 166.848,
-            'P2RIGHT.Y': 107.969,
-        }) 
+def Pos_One_Or_Two(fd, points):
+    if len(fd) == 4:
+        FDCenter = (points[fd[0]]+points[fd[1]]+points[fd[2]]+points[fd[3]])/4;
+    elif len(fd) == 2: 
+        FDCenter = (points[fd[0]]+points[fd[1]])/2;
+    
+    if FDCenter[1] > 210:
+        Position = 1;
+    else:
+        Position = 2;
+    return Position;
 
-    #print(points);
-    """for sheetname in sheetnames:
-        TrayNum = TrayID(sheetname);
-        PosNum = PositionID(sheetname);"""
-    #print(fd);
+def Get_The_Pins(Shape, Position):
+    if Shape == 'HD Full' or Shape == 'LD Full':
+        if Position == 1:
+            OffKey = 'P1E';
+            CenKey = 'P1C';
+        if Position == 2:
+            OffKey = 'P2G'
+            CenKey = 'P2C';
+    elif Shape == 'LD Right':
+        if Position == 1:
+            OffKey = 'P1E';
+            CenKey = 'P1A';
+        if Position == 2:
+            OffKey = 'P2H';
+            CenKey = 'P2C';
+    
+    return OffKey, CenKey;
+        
+    
+def get_offsets(filenames, Traysheets, Shape):
+    print("Code Works Up to Here... get_offsets in ogp_height_plotter")
+    #Just added Shape to inputs, needs to be accounted for. Oct 30 -Paolo
+        ##FIRST; Get the points and use thier Locations to determine P1 or P2:
+        
+    sheetnames = loadsheet(filenames);    fd=[]; points = {};
+    sensorKeys = ["FD"] #needs to adapt/be tested for other shapes
+    fd, points = searchSensorFD(sheetnames[1], sensorKeys, details = 0, fd=fd,points = points)
 
-    PositionID = 1;
-    if PositionID == 1:
-        CenterOff, AngleOff, XOffset, YOffset = angle(points, FDpoints=len(fd), OffCenterPin='Left', details=0,plot=1, Center = "P1Center", Off = "P1LEFT", fd = fd)    
-    elif PositionID == 2:
-        CenterOff, AngleOff, XOffset, YOffset = angle(points, FDpoints=len(fd), OffCenterPin='Right', details=0,plot=1, Center = "P2Center", Off = "P2RIGHT", fd = fd)
+    Position = Pos_One_Or_Two(fd, points);
+    
+        ##Second: Find Tray Pin Keys with Knowladge of Position and File/Tray Name 
+    
+    Off, Center = Get_The_Pins(Shape, Position); keys = [Center, Off];
+    
+        ##Third Use Tray Keys to Determine Pin locations
+    
+    TrayKeys = ["Tray","T",'P1','P2']
+    searchTrayPin(sheetnames[0],keys,details=0,Tray = 0, points = points)
+        
+        ##Fourth: Use Pin locations, Position, Shape, and FD points to Calculate Offsets
+    
+    #print(points); """for sheetname in sheetnames: TrayNum = TrayID(sheetname); PosNum = PositionID(sheetname);""" #print(fd);
+    print(points)
+    CenterOff, AngleOff, XOffset, YOffset = angle(points, FDpoints=len(fd), OffCenterPin=Off, details=0,plot=1, Center = Center, Off = Off, fd = fd, Position = Position, Shape = Shape)
     return XOffset, YOffset, AngleOff
 
 
@@ -715,3 +777,12 @@ def quality(Center, Rotation, position = "P1", details =0, note = 0):
     # if note == 1:
     #     print()
     #     help(QualityControl)
+
+
+#####Testing#########
+#get_shape_from_name('MHR1CXSB0001')
+#get_shape_from_name('MLL1CX-SB0001')
+##get_shape_from_name('320MHT1CX-SB0001')
+#get_shape_from_name('320-MLR1CX-SB0001')
+#get_shape_from_name('320-MHL1CXSB0001')
+#get_shape_from_name('320MLT1CXSB0001')

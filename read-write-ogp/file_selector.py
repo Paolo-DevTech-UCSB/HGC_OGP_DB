@@ -45,7 +45,8 @@ def process_selected_files():
         output_text.config(state=tk.DISABLED)
 
 def call_script_with_plotting(file_path):
-    script_path = 'process_im.py'
+    script_path = 'read-write-ogp\\process_im.py'
+    #script_path = 'process_im.py' -Paolo
     if '.xls' in file_path.lower():
         command = ['python', script_path, file_path]
 
