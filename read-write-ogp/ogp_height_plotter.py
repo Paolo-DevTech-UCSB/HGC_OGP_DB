@@ -519,7 +519,7 @@ def plotFD(FDpoints,FDCenter,Center, Off, points, fd, sheetnames = ['','']):
     print()
 
 
-def angle(points,FDpoints=4,OffCenterPin = "Left", details = 0, plot = 0, Center = None, Off = None, fd = None, Position = 1, Shape = "HD Full"):
+def angle(points,FDpoints=4,OffCenterPin = "Left", details = 0, plot = 0, Center = None, Off = None, fd = None, Position = 1, Shape = "HD Full", comp_type = "module"):
     #this needs to be reorganized/reconfigured -Paolo Oct 30
     # def angle(points,FDpoints=4,OffCenterPin = "Left", details = 0, plot = 0, Center = None, Off = None, fd = None):
     ValidOffCenterPins = ['P1E','P1F','P1G','P1H','P2E','P2F','P2G','P2H']
@@ -551,7 +551,7 @@ def angle(points,FDpoints=4,OffCenterPin = "Left", details = 0, plot = 0, Center
     
     #print(points)
     # MAKING 'PIN' VECTOR ####### #######
-    # PIN VECTOR POINTS TO THE RIGHT ----> 
+    # PIN VECTOR POINTS TO THE RIGHT ----> OR up +90
     print("Making a Vector using Pin Data With the Following Configuartion:")
     if OffCenterPin == "P1E":     #FULLS and TOPS
         Pin = np.array([points[CenterX],points[CenterY]]) - np.array([points[OffX],points[OffY]])
@@ -575,22 +575,22 @@ def angle(points,FDpoints=4,OffCenterPin = "Left", details = 0, plot = 0, Center
          
     elif OffCenterPin == "P1H":     #LEFTS
         Pin = np.array([points[CenterX],points[CenterY]]) - np.array([points[OffX],points[OffY]]) 
-        PinAdj = 270;
-        print("OffCenter Pin is Below the Center Pin   (up)  +270 / -90 ")
+        PinAdj = 90;
+        print("OffCenter Pin is Below the Center Pin   (up)  +90 ")
     elif OffCenterPin == "P2F":     #LEFTS
         Pin = np.array([points[OffX],points[OffY]]) - np.array([points[CenterX],points[CenterY]])
-        PinAdj = 270;
-        print("OffCenter Pin is Above the Center Pin   (up)  +270 / -90 ")
+        PinAdj = 90;
+        print("OffCenter Pin is Above the Center Pin   (up)  +90 ")
     
     
     elif OffCenterPin == "P1F":     #RIGHTS
         Pin = np.array([points[CenterX],points[CenterY]]) - np.array([points[OffX],points[OffY]])
-        PinAdj = 270;
-        print("OffCenter Pin is Above the Center Pin   (up)  +270 / -90 ")
+        PinAdj = 90;
+        print("OffCenter Pin is Above the Center Pin   (up)  +90")
     elif OffCenterPin == "P2H":     #RIGHTS
         Pin = np.array([points[OffX],points[OffY]]) - np.array([points[CenterX],points[CenterY]])
-        PinAdj = 270;
-        print("OffCenter Pin is Below the Center Pin   (up)  +270 / -90 ")
+        PinAdj = 90;
+        print("OffCenter Pin is Below the Center Pin   (up)  +90 ")
         
     # MAKING 'PIN' ANGLE ####### #######    
     angle_Pin = np.degrees(np.arctan2(Pin[1],Pin[0])) + PinAdj;
@@ -598,53 +598,133 @@ def angle(points,FDpoints=4,OffCenterPin = "Left", details = 0, plot = 0, Center
     if PinAdj != 0:
         print(f"Angle Pin {angle_Pin:.3f} deg Adjusted by {PinAdj:.3f} deg")
         
-    if all(key in points for key in ['FD1', 'FD2', 'FD3', 'FD4']):
-        print(points['FD1'], points['FD2'], points['FD3'], points['FD4'])
+    dynamic_var = ''
+    new_points = {f'{dynamic_var}{key.split("_")[1]}': value for key, value in points.items() if 'FD' in key}
+    #print("new_points:", new_points)
+    keys = ['FD1', 'FD2', 'FD3', 'FD4']
+    if all(f'pos1_{key}' in points for key in keys):
+        print("FD1:", new_points['FD1'], "FD2:", new_points['FD2'], "FD3:", new_points['FD3'], "FD4:", new_points['FD4'])
     else:
         print("One or more keys are missing.")
 
-    #FD Center Calculation 
+    print("Big CheckPoint 2!!")    
 
-
-    #if Shape == "HD Full":    
-    #if Shape == "HD Full":
-    #if Shape == "HD Full":
-    #if Shape == "HD Full":
-    #if Shape == "HD Full":
-    #if Shape == "HD Full":
-    #if Shape == "HD Full":
-    #if Shape == "HD Full":
-         
-    print("Big CheckPoint 2!!")       
-           
-        
-    #Offset Calculation:     FDC and Pin Ceneter Will get new definitions, dependent on shape
-    XOffset = FDCenter[0]-PinCenter[0]
-    YOffset = FDCenter[1]-PinCenter[1]
+    #FD Center Calculation (AVG of Select Points)    (translations come later***)
+    if Shape == "HD Full": 
+        FDC_x = (new_points['FD1'][0] + new_points['FD2'][0] + new_points['FD3'][0] + new_points['FD4'][0]) / 4
+        FDC_y = (new_points['FD1'][1] + new_points['FD2'][1] + new_points['FD3'][1] + new_points['FD4'][1]) / 4
+        ### Center of board, and center of pin
+    elif Shape == "LD Right":
+        FDC_x = (new_points['FD1'][0] + new_points['FD3'][0] ) / 2
+        FDC_y = (new_points['FD1'][1] + new_points['FD3'][1] ) / 2
+        ### Slightly offcenter from pin (different for PM and M)
+    elif Shape == "LD Five":
+        FDC_x = (new_points['FD1'][0] + new_points['FD3'][0] + new_points['FD4'][0]) / 3
+        FDC_y = (new_points['FD1'][1] + new_points['FD3'][1] + new_points['FD4'][1]) / 3
+        # Center of the Board and Center Pin
+    else:
+        print("Error or Not Programmed yet!!")
+    FDCenter = [FDC_x, FDC_y]
+     
+    # Vector 1&2 (vector of select Fiducials) (going UP** 1 is on left) (2 is also up but secondary *if applicable*)
+    V2_Adj = 0
+    if Shape == "HD Full":
+        if Position == 1: 
+            Vector_1 = np.array(new_points['FD2']) - np.array(new_points['FD1']) #up left
+            Vector_2 = np.array(new_points['FD3']) - np.array(new_points['FD4']) #up right
+        if Position == 2:
+            Vector_1 = np.array(new_points['FD4']) - np.array(new_points['FD3']) #up left
+            Vector_2 = np.array(new_points['FD1']) - np.array(new_points['FD2']) # up right
+    elif Shape == "LD Right":
+        if Position == 1: 
+            Vector_1 = np.array(new_points['FD2']) - np.array(new_points['FD4']) # up middle
+            Vector_2 = np.array(new_points['FD1']) - np.array(new_points['FD3']) # left translated
+            V2_Adj = -90
+        if Position == 2:
+            Vector_1 = np.array(new_points['FD4']) - np.array(new_points['FD2']) #up middle
+            Vector_2 = np.array(new_points['FD3']) - np.array(new_points['FD1']) # left translated
+            V2_Adj = -90
+    elif Shape == "LD Five":
+        if Position == 1: 
+            Vector_1 = np.array(new_points['FD4']) - np.array(new_points['FD2']) # up middle
+            Vector_2 = np.array(new_points['FD1']) - np.array(new_points['FD3']) # left translated
+            V2_Adj = -90
+        if Position == 2:
+            Vector_1 = np.array(new_points['FD2']) - np.array(new_points['FD4']) #up middle
+            Vector_2 = np.array(new_points['FD3']) - np.array(new_points['FD1']) # left translated
+            V2_Adj = -90
+    else:
+        print("Error or Not Programmed yet!!")
     
+    # MAKING 'Vector 1' ANGLE ####### #######    
+    angle_Vector_1 = np.degrees(np.arctan2(Vector_1[1],Vector_1[0]));
+    print(f"Angle Vector 1 = ArcTan [ {Vector_1[1]:.3f} / {Vector_1[0]:.3f}] = {angle_Vector_1:.3f} deg")
+
+    # MAKING 'Vector 2' ANGLE ####### #######    
+    angle_Vector_2 = np.degrees(np.arctan2(Vector_2[1],Vector_2[0]));
+    print(f"Angle Vector 2 = ArcTan [ {Vector_2[1]:.3f} / {Vector_2[0]:.3f}] = {angle_Vector_2:.3f} deg")   
+    if V2_Adj != 0:
+        print(f"Angle Vector 2 {angle_Vector_2:.3f} deg Adjusted by {V2_Adj:.3f} deg")    
+        #Calculated Angle Offset (Difference Between Pin and FD1 angle)
+    
+
     #Angle Calculation         IS THIS ALLWAYS TRUE?  IDK - need more time
-    AngleOffset = angle_FD1 - angle_Pin
+
+    #Which is with respec to the Assembly tray (not rotated with respect to ch1)
+    AngleOffset = angle_Vector_1 - angle_Pin
     print(f"Assembly Survey Rotational Offset is {AngleOffset:.5f} degrees")
-    
-    if plot == 1:
-        plotFD(FDpoints,FDCenter,Center, Off, points, fd,)
-    CenterOffset = np.sqrt(XOffset**2 + YOffset**2)
-    
-    print(f"Assembly Survey X Offset: {XOffset:.3f} mm")
-    print(f"Assembly Survey Y Offset: {YOffset:.3f} mm")
+    print(f"{AngleOffset:.5f} = {angle_Vector_1:.5f} - {angle_Pin:.5f} degrees")
+         
+
+    #TRANSLATIONS / OFFSETS, NEEDED FOR ALL PARTIALS EXCEPT LD FIVE:
+    X_Adj = 0
+    Y_Adj = 0
     print()
-    #ADDED For Rotation if NEEDED
-    if OffCenterPin == "Left":
+    print(f"shape: {Shape}")
+    print()
+    if Shape == "LD Right":
+        if comp_type == 'modules':
+            if Position == 1:
+                Y_Adj = -38.06
+            if Position == 2:
+                Y_Adj = 38.06
+        elif comp_type == 'protomodules':
+            if Position == 1:
+                Y_Adj = -18
+            if Position == 2:
+                Y_Adj = 18
+        else: print("invalid comp_type: location: in angle() ")
+    else:
+        X_Adj = 0
+        Y_Adj = 0
+    
+
+    #Offset Calculation:     FDC and Pin Ceneter Will get new definitions, dependent on shape
+    
+    XOffset = float(FDC_x) - float(points[CenterX]) + float(X_Adj)
+    YOffset = float(FDC_y) - float(points[CenterY]) + float(Y_Adj)
+    print(f"{XOffset:.5f} = {FDC_x:.5f} - {points[CenterX]:.5f} + {X_Adj:.5f} mm")
+    print(f"{YOffset:.5f} = {FDC_y:.5f} - {points[CenterY]:.5f} + {Y_Adj:.5f} mm")
+    
+    #Offset ROTATION: FROM relative to ASSEMBLY TRAY TO relative to CH1/HB   
+    if Position == 1:
         NEWY = XOffset*-1;
         NEWX = YOffset; 
-    elif OffCenterPin == "Right":
+    elif Position == 2:
         NEWY = XOffset;
         NEWX = YOffset*1; 
-    print(f"Assembly Survey X Offset: {NEWX:.3f} mm (rotated)")
-    print(f"Assembly Survey Y Offset: {NEWY:.3f} mm (rotated)")
-    print()
     
-    return CenterOffset, AngleOffset, XOffset, YOffset
+    #print(f"Assembly Survey X Offset: {XOffset:.3f} mm w.r.t. Assembly Tray")
+    #print(f"Assembly Survey Y Offset: {YOffset:.3f} mm w.r.t. Assembly Tray")
+    print()
+    print(f"Reported: Assembly Survey X Offset: {NEWX:.3f} mm w.r.t CH1")
+    print(f"Reported: Assembly Survey Y Offset: {NEWY:.3f} mm w.r.t CH1")
+    print()
+
+    if plot == 1:
+        plotFD(FDpoints, FDCenter, Center, Off, points, fd,)
+    CenterOffset = np.sqrt(XOffset**2 + YOffset**2)
+    return CenterOffset, AngleOffset, NEWX, NEWY
 
 def get_shape_from_name(modname):
     print("Name:" , modname) #print(modname[3], modname[10])
@@ -723,7 +803,7 @@ def Get_The_Pins(Shape, Position):
             CenKey = 'P2C';
     elif Shape == 'LD Right':
         if Position == 1:
-            OffKey = 'P1E';
+            OffKey = 'P1F';
             CenKey = 'P1A';
         if Position == 2:
             OffKey = 'P2H';
@@ -764,7 +844,7 @@ def get_offsets(filenames, Traysheets, Shape, comp_type, TrayNum):
     
     #print(points); """for sheetname in sheetnames: TrayNum = TrayID(sheetname); PosNum = PositionID(sheetname);""" #print(fd);
     print(points)
-    CenterOff, AngleOff, XOffset, YOffset = angle(points, FDpoints=len(fd), OffCenterPin=Off, details=0,plot=1, Center = Center, Off = Off, fd = fd, Position = Position, Shape = Shape)
+    CenterOff, AngleOff, XOffset, YOffset = angle(points, FDpoints=len(fd), OffCenterPin=Off, details=0,plot=1, Center = Center, Off = Off, fd = fd, Position = Position, Shape = Shape, comp_type = comp_type)
     return XOffset, YOffset, AngleOff
 
 
