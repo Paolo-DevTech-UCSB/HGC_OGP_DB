@@ -14,9 +14,9 @@ print(f'filename: {OGPSurveyfile}')
 GantryTrayFile = OGPSurveyfile.split('data')[0]+'data/Tray 2 low light more points June 2023.xls';
 #GantryTrayFile = OGPSurveyfile.split('data')[0]+'data/Tray 2 for NSH.xls';
 #Tray1file = OGPSurveyfile.split('OGP_results')[0]+'data/Tray 1 for NSH.xls'
-Tray1file = OGPSurveyfile.split('data')[0]+'data/Tray 1 for NSH.xls'
+Tray1file = OGPSurveyfile.split('data')[0]+'data/Tray 1 for NSH _Fixed.xls'
 #Tray2file = OGPSurveyfile.split('OGP_results')[0]+'data/Tray 2 for NSH.xls'
-Tray2file = OGPSurveyfile.split('data')[0]+'data/Tray 2 for NSH.xls'
+Tray2file = OGPSurveyfile.split('data')[0]+'data/Tray 2 low light more points June 2023_Fixed.xls'
 Tray3file = OGPSurveyfile.split('data')[0]+'data/Tray 3 backlight.xls'
 trash_file = False
 
