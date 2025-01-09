@@ -124,12 +124,29 @@ class PlotTool:
         - `XOffset`: x-offset of the sensor from the tray center
         - `YOffset`: y-offset of the sensor from the tray center
         - `AngleOff`: angle of the sensor from the tray fiducials"""
+
+        #Position 
         if not self.meta.get('PositionID'): 
             warnings.warn("PositionID not found in metadata. Default to Position ID 1.")
             PositionID = 1
         else:
             PositionID = int(self.meta['PositionID'])
 
+        #Geometry
+        if not self.meta.get('Geometry'): 
+            warnings.warn("Geometry not found in metadata. Default Geometry is Full.")
+            Geometry = 'Full'
+        else:
+            Geometry = int(self.meta['Geometry'])
+
+        #Density
+        if not self.meta.get('Density'): 
+            warnings.warn("Density not found in metadata. Default shape is LD.")
+            density = 'LD'
+        else:
+            density = int(self.meta['Density'])
+
+        #TrayNo
         if not self.meta.get('TrayNo'):
             warnings.warn("TrayNo not found in metadata. Default to Tray 1.")
             TrayNo = 1
@@ -140,19 +157,84 @@ class PlotTool:
         with open(TrayFile, 'r') as f:
             trayinfo = yaml.safe_load(f)
         
+        """
         if PositionID == 1:
             pos = 'left'
         else: pos = 'right'
-        
-        centerxy = tuple(trayinfo[f'p{PositionID}_center_pin_xy'])
-        offsetxy = tuple(trayinfo[f'p{PositionID}_offcenter_pin_{pos}_xy'])
+        """
+        #CURRENTLY SWAPPING THIS ^^^ WITH THIS VVV
+        HolePin = ''; SlotPin = '';
+        if Geometry == 'Full':
+            if density == 'LD':
+                if PositionID == 1:
+                    HolePin = 'p1_center_pin'; SlotPin = 'p1O';  #not a zero
+                elif PositionID == 2:
+                    HolePin = 'p2_center_pin'; SlotPin = 'p2M';
+            elif density == 'HD':
+                if PositionID == 1:
+                    HolePin = 'p1_center_pin'; SlotPin = 'p1O';  #not a zero
+                elif PositionID == 2:
+                    HolePin = 'p2_center_pin'; SlotPin = 'p2M';
+        elif Geometry == 'Left':
+            if density == 'LD':
+                if PositionID == 1:
+                    HolePin = 'p1C'; SlotPin = 'p1L';
+                elif PositionID == 2:
+                    HolePin = 'p2A'; SlotPin = 'p2K';
+            elif density == 'HD':
+                if PositionID == 1:
+                    HolePin = 'p1F'; SlotPin = 'p1P';
+                elif PositionID == 2:
+                    HolePin = 'p2H'; SlotPin = 'p2N';
+        elif Geometry == 'Right':
+            if density == 'LD':
+                if PositionID == 1:
+                    HolePin = 'p1A'; SlotPin = 'p1K';
+                elif PositionID == 2:
+                    HolePin = 'p2C'; SlotPin = 'p2I';
+            elif density == 'HD':
+                if PositionID == 1:
+                    HolePin = 'p1H'; SlotPin = 'p1N';
+                elif PositionID == 2:
+                    HolePin = 'p2F'; SlotPin = 'p2P';
+        elif Geometry == 'Top':
+            if density == 'LD':
+                if PositionID == 1:
+                    HolePin = 'p1D'; SlotPin = 'p1O';
+                elif PositionID == 2:
+                    HolePin = 'p2B'; SlotPin = 'p2M';
+            elif density == 'HD':
+                if PositionID == 1:
+                    HolePin = 'p1E'; SlotPin = 'p1O';
+                elif PositionID == 2:
+                    HolePin = 'p2G'; SlotPin = 'p2M';
+        elif Geometry == 'Bottom':
+            if density == 'LD':
+                if PositionID == 1:
+                    HolePin = 'p1B'; SlotPin = 'p1M';
+                elif PositionID == 2:
+                    HolePin = 'p2D'; SlotPin = 'p2O';
+            elif density == 'HD':
+                if PositionID == 1:
+                    HolePin = 'p1_center_pin'; SlotPin = 'p1M';
+                elif PositionID == 2:
+                    HolePin = 'p2_center_pin'; SlotPin = 'p2O';
+        elif Geometry == 'Five':
+                if PositionID == 1:
+                    HolePin = 'p1_center_pin'; SlotPin = 'p1I';
+                elif PositionID == 2:
+                    HolePin = 'p2_center_pin'; SlotPin = 'p2K';
+        else: print('ogpheightplotter:plottool:angle: Geometry Not recognized')
 
+        HolePin_xy = tuple(trayinfo[f'{HolePin}_xy'])  
+        SlotPin_xy = tuple(trayinfo[f'{SlotPin}_xy'])
+        
         FD_points = self.features[self.features['FeatureName'].str.contains('FD')]
         FD_points = FD_points[['X_coordinate', 'Y_coordinate']].values
 
-        plotFD(FD_points, centerxy, centerxy, offsetxy, True, pjoin(self.save_dir, f"{self.meta['ComponentID']}_FDpoints.png"))        
+        plotFD(FD_points, HolePin_xy, HolePin_xy, SlotPin_xy, True, pjoin(self.save_dir, f"{self.meta['ComponentID']}_FDpoints.png"))        
     
-        CenterOff, AngleOff, XOffset, YOffset = angle(centerxy, offsetxy, FD_points)    
+        CenterOff, AngleOff, XOffset, YOffset = angle(HolePin_xy, SlotPin_xy, FD_points, Geometry, density, PositionID)    
         print(f"Assembly Survey X Offset: {XOffset:.3f} mm")
         print(f"Assembly Survey Y Offset: {YOffset:.3f} mm")
         print(f"Assembly Survey Rotational Offset is {AngleOff:.5f} degrees")
@@ -221,90 +303,93 @@ def plotFD(FDpoints:np.array, FDCenter:tuple, CenterXY:tuple, OffXY:tuple, save=
     #     plt.plot(FDCenter[0],FDCenter[1],'ro',label='FDCenter',ms=2)
     #     names = ['P1CenterPin','P1OffcenterPin','FD1','FD2','FD3','FD4']
 
-def angle(centerXY:tuple, offsetXY:tuple, FDPoints:np.array):
+def angle(holeXY:tuple, slotXY:tuple, FDPoints:np.array, shape, density, position):
     """Calculate the angle and offset of the sensor from the tray fiducials.
     
     Parameters
-    - `centerXY`: center of the sensor
-    - `offsetXY`: offset of the sensor
-    - `FDPoints`: array of fiducial points
-    
+    - `holeXY`: the location of the pin that corresponds to the HOLE in the base plate. previously called: "the center pin"
+    - `slotXY`: the location of the pin that corresponds to the SLOT in the base plate. previously called: "the offcenter pin"
+    - `FDPoints`: array of fiducial points: 2, 4, 6, or 8, FD points are accepted
+    - `shape`: the shape of the module eg, Full/Five/Left/Right
+    - `desnity`: the desity of the module, HD or LD
+    - `position`: the position its assembled in, P1 or P2
+
     Return
     - `CenterOffset`: offset of the sensor from the tray center
     - `AngleOffset`: angle of the sensor from the tray fiducials
     - `XOffset`: x-offset of the sensor from the tray center
     - `YOffset`: y-offset of the sensor from the tray center"""
     
-    centerX, centerY = centerXY
-    offsetX, offsetY = offsetXY
-    pinX = abs(centerX - offsetX)
-    pinY = abs(centerY - offsetY)
+    #rename:
+        #changing name "center" to "hole" refering to the hole on the baseplate
+        #changing name "offcenter" to "slot" refering to the slot on the baseplate
 
-    assert len(FDPoints) == 2 or len(FDPoints) == 4, "The number of fiducial points must be either 2 or 4."
+    holeX, holeY = holeXY
+    slotX, slotY = slotXY
+
+    pinX = slotX - holeX     #X component of a vector pointing from hole to slot
+    pinY = slotY - holeY     #Y component "" ""
+
+    Hole = np.array([holeX, holeY])
+
+    assert len(FDPoints) == 2 or len(FDPoints) == 4 or len(FDPoints) == 6 or len(FDPoints) == 8, "The number of fiducial points must be 2,4,6 or 8."
+
+    if shape == 'Full' or shape == 'Bottom' or shape == 'Top':
+        angle_Pin= np.degrees(np.arctan2(pinY, pinX))
+    elif shape == 'Left' or shape == 'Right' or shape == 'Five':
+        angle_Pin= (np.degrees(np.arctan2(pinX, pinY)) * -1)
+    else: print('ogpheightplotter: angle: shape not recognized')
     
-    PinCenter = np.array([centerX, centerY])
-    angle_Pin= np.degrees(np.arctan2(pinY, pinX))
+    if density == 'HD':   
+        if shape == 'Full':
+            FDCenter = np.mean(FDPoints, axis=0) #Average of ALl FDs
+        else:
+            FDCenter = np.mean(FDPoints[0,2], axis=0)  #Average of FD1 and FD3, this applies to modules except HD Full
+    if density == 'LD':
+        if shape == 'Full':
+            FDCenter = np.mean(FDPoints, axis=0) #Average of ALl FDs
+        else:
+            FDCenter = np.mean(FDPoints[0,2], axis=0)  #Average of FD1 and FD3, this applies to all modules except LD Full
 
-    FDCenter = np.mean(FDPoints, axis=0)
+     #   FDPoints[0] must be "FD1" and FDPoints[2] must be "FD3" , or else this system will not work.
+     #  It is up to the parsing system and the file output to assign the fiducials correctly  -PJ 1/9/25
 
-    XOffset = FDCenter[0]-PinCenter[0]
-    YOffset = FDCenter[1]-PinCenter[1]
+     #adjustmentX and adjustmentY is appropriate for all modules except Fulls, and the Five
 
-    print(f"Assembly Survey Y Offset: {YOffset:.3f} mm. \n")
+    if shape == 'Full' or shape == 'Five':
+        adjustmentX = 0; adjustmentY = 0;
+    # Waiting on Adjustment INFO, This needs to be filled out after measurements !!!!WORK IN PROGRESS!!!
+    
+    XOffset = FDCenter[0]-Hole[0]-adjustmentX
+    YOffset = FDCenter[1]-Hole[1]-adjustmentY
+
+    print(f"Assembly Survey X Offset: {XOffset:.3f} mm. \n")
     print(f"Assembly Survey Y Offset: {YOffset:.3f} mm. \n")
 
     CenterOffset = np.sqrt(XOffset**2 + YOffset**2)
 
-    Pin = np.array([pinX, pinY])
-    u_Pin = Pin/np.linalg.norm(Pin)
-    angle_Pin= np.degrees(np.arctan2(Pin[1],Pin[0]))
-
-    if len(FDPoints) == 2:
-        FD1 = FDPoints[0] - FDPoints[1]
-        angle_FD1= np.degrees(np.arctan2(FD1[1],FD1[0]))-90 if FD1[1] > 0 else np.degrees(np.arctan2(FD1[1],FD1[0]))+90
-        print(f"FD1-2 X'' axis is at angle {angle_FD1:.5f} degrees. \n")
-        print(f"FDCenter at x:{FDCenter[0]:.3f} mm, y:{FDCenter[1]:.3f} mm")
-        print(f"PinCenter at x:{PinCenter[0]:.3f} mm, y:{PinCenter[1]:.3f} mm")
-        
-        #! What's the purpose of these lines?
-        # AngleOffset = angle_FD1 - angle_Pin
-        # print(f"Assembly Survey Rotational Offset is {AngleOffset:.5f} degrees")
+    FD3to1 = FDPoints[0] - FDPoints[2]  #Vector from FD3 to FD1
     
-    if len(FDPoints) == 4:
-        FD1 = FDPoints[0] - FDPoints[2]
-        angle_FD1 = np.degrees(np.arctan2(FD1[1],FD1[0]))-90 if FD1[1] > 0 else np.degrees(np.arctan2(FD1[1],FD1[0]))+90
-        FD2 = FDPoints[1] - FDPoints[3]
-        angle_FD2 = np.degrees(np.arctan2(FD2[1],FD2[0]))-90 if FD2[1] > 0 else np.degrees(np.arctan2(FD2[1],FD2[0]))+90
-        FD = (FD1+FD2)/2
-        print(f"FD1-3 X'' axis is at angle {angle_FD1:.5f} degrees")
-        print(f"angle of FD1-3 X'' relative to Assembly Tray Pin X' is {angle_FD1 - angle_Pin:.5f} degrees")
-        print(f"FD2-4 X'' axis is at angle {angle_FD2:.5f} degrees")
-        print(f"angle of FD2-4 X'' relative to Assembly Tray Pin X' is {angle_FD2 - angle_Pin:.5f} degrees. \n")
-        print(f"FDCenter at x:{FDCenter[0]:.3f} mm, y:{FDCenter[1]:.3f} mm")
-        print(f"PinCenter at x:{PinCenter[0]:.3f} mm, y:{PinCenter[1]:.3f} mm. \n")
-        #! What's the purpose of these lines?
-        #print(f"Pin X' axis is at angle {angle_Pin:.3f} degrees. \n")
-        # u_FD = FD/np.linalg.norm(FD)
-        # angle_FD= np.degrees(np.arctan2(FD[1],FD[0]))-90
-        # print(f"Pin X' axis is at angle {angle_Pin:.5f} degrees. \n")
-        # print(f"FD1-4 X'' axis is at angle {angle_FD:.5f} degrees")
-        #print(f"Assembly Survey Rotational Offset is {angle_FD - angle_Pin:.5f} degrees. \n")
-        #angle_FD1= np.degrees(np.arctan2(FD1[1],FD1[0]))
-        #print(f"FD1-2 X'' axis is at angle {angle_FD1} degrees")
 
+    if shape == 'Bottom' or shape == 'Top':       #if shape is Top or bottom, FD3to1 will point either left or right
+        angle_FD3to1 = np.degrees(np.arctan2(FD3to1[1],FD3to1[0]))
+    elif shape == 'Left' or shape == 'Right' or shape == 'Five':     #if shape is Five, Right or Left, FD3to1 will point either up or down
+        angle_FD3to1 = (np.degrees(np.arctan2(FD3to1[0],FD3to1[1])) * -1);
+    elif shape == 'Full' & density == 'HD':
+        # in this case angle_FD3to1 is actually the angle of the line that goes from 1 to 2, this points up and down wrt tray
+        FD3to1 = FDPoints[1] - FDPoints[0]
+        angle_FD3to1 = (np.degrees(np.arctan2(FD3to1[0],FD3to1[1])) * -1);
+    elif shape == 'Full' & density == 'LD':
+        # in this case angle_FD3to1 is actually the angle of the line that goes from 6 to 3, this points up and down wrt tray
+        FD3to1 = FDPoints[2] - FDPoints[5]
+        angle_FD3to1 = (np.degrees(np.arctan2(FD3to1[0],FD3to1[1])) * -1);
+    else: print('ogpheightplotter: angle: shape not recognized')
 
-    AngleOffset = angle_FD1 - angle_Pin
-    #! ADDED For Rotation if NEEDED
-    # if OffCenterPin == "Left":
-    #     NEWY = XOffset*-1;
-    #     NEWX = YOffset; 
-    # elif OffCenterPin == "Right":
-    #     NEWY = XOffset;
-    #     NEWX = YOffset*1; 
-    # print(f"Assembly Survey X Offset: {NEWX:.3f} mm (rotated)")
-    # print(f"Assembly Survey Y Offset: {NEWY:.3f} mm (rotated)")
-    
-    # print(f"Assembly Survey Rotational Offset is {AngleOffset:.5f} degrees")
+    print(f"FD1-2 X'' axis is at angle {angle_FD3to1:.5f} degrees. \n")
+    print(f"FDCenter at x:{FDCenter[0]:.3f} mm, y:{FDCenter[1]:.3f} mm")
+    print(f"Pin&Hole at x:{holeX[0]:.3f} mm, y:{HoleY[1]:.3f} mm")
+
+    AngleOffset = angle_FD3to1 - angle_Pin
 
     return CenterOffset, AngleOffset, XOffset, YOffset
 
